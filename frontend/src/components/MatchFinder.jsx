@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../api";
 import ScoreBar from "./ScoreBar";
+import { useCatalog } from "../CatalogContext";
 
 const emptyForm = {
   buyerName: "",
@@ -8,35 +9,19 @@ const emptyForm = {
   region: "",
   crop: "",
   quantityNeeded: "",
-  unit: "",
   maxPrice: "",
   description: "",
 };
 
 export default function MatchFinder() {
-  const [regions, setRegions] = useState([]);
-  const [crops, setCrops] = useState([]);
+  const { regions, crops, buyerTypes, regionName, cropName } = useCatalog();
   const [form, setForm] = useState(emptyForm);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    Promise.all([api.getRegions(), api.getCrops()])
-      .then(([r, c]) => {
-        setRegions(r);
-        setCrops(c);
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-
   const handleChange = (field) => (e) => {
-    const value = e.target.value;
-    setForm((f) => ({
-      ...f,
-      [field]: value,
-      ...(field === "crop" ? { unit: crops.find((c) => c.id === value)?.unit || "" } : {}),
-    }));
+    setForm((f) => ({ ...f, [field]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
@@ -58,8 +43,7 @@ export default function MatchFinder() {
     }
   };
 
-  const regionName = (id) => regions.find((r) => r.id === id)?.name || id;
-  const cropName = (id) => crops.find((c) => c.id === id)?.name || id;
+  const selectedCrop = crops.find((c) => c.id === form.crop);
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-10 grid lg:grid-cols-[1fr,1.3fr] gap-10">
@@ -73,25 +57,36 @@ export default function MatchFinder() {
 
         <form onSubmit={handleSubmit} className="bg-white border border-ink/10 rounded-2xl p-6 space-y-4">
           <div>
-            <label className="text-sm font-medium text-ink/80">Buyer / company name</label>
+            <label className="text-sm font-medium text-ink/80" htmlFor="buyerName">
+              Buyer / company name
+            </label>
             <input
+              id="buyerName"
               required
               value={form.buyerName}
               onChange={handleChange("buyerName")}
-              className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+              className="field"
               placeholder="e.g. Windhoek Fresh Produce Co."
             />
           </div>
 
+          <div>
+            <label className="text-sm font-medium text-ink/80" htmlFor="buyerType">
+              Buyer type
+            </label>
+            <select id="buyerType" value={form.buyerType} onChange={handleChange("buyerType")} className="field">
+              {buyerTypes.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-ink/80">Preferred region</label>
-              <select
-                required
-                value={form.region}
-                onChange={handleChange("region")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
-              >
+              <label className="text-sm font-medium text-ink/80" htmlFor="buyer-region">
+                Preferred region
+              </label>
+              <select id="buyer-region" required value={form.region} onChange={handleChange("region")} className="field">
                 <option value="">Select…</option>
                 {regions.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -101,13 +96,10 @@ export default function MatchFinder() {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-ink/80">Crop / livestock needed</label>
-              <select
-                required
-                value={form.crop}
-                onChange={handleChange("crop")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
-              >
+              <label className="text-sm font-medium text-ink/80" htmlFor="buyer-crop">
+                Crop / livestock needed
+              </label>
+              <select id="buyer-crop" required value={form.crop} onChange={handleChange("crop")} className="field">
                 <option value="">Select…</option>
                 {crops.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -120,47 +112,55 @@ export default function MatchFinder() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-ink/80">Quantity needed {form.unit && `(${form.unit})`}</label>
+              <label className="text-sm font-medium text-ink/80" htmlFor="quantityNeeded">
+                Quantity needed {selectedCrop ? `(${selectedCrop.unit})` : ""}
+              </label>
               <input
+                id="quantityNeeded"
                 required
                 type="number"
-                min="0"
+                min="0.01"
+                step="any"
                 value={form.quantityNeeded}
                 onChange={handleChange("quantityNeeded")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+                className="field"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-ink/80">Max price (N$)</label>
+              <label className="text-sm font-medium text-ink/80" htmlFor="maxPrice">
+                Max price (N$)
+              </label>
               <input
+                id="maxPrice"
                 required
                 type="number"
-                min="0"
+                min="0.01"
+                step="any"
                 value={form.maxPrice}
                 onChange={handleChange("maxPrice")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+                className="field"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-ink/80">What matters to you</label>
+            <label className="text-sm font-medium text-ink/80" htmlFor="buyer-description">
+              What matters to you
+            </label>
             <textarea
+              id="buyer-description"
               value={form.description}
               onChange={handleChange("description")}
               rows={3}
-              className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+              maxLength={500}
+              className="field"
               placeholder="e.g. export grade, vaccinated stock, weekly standing order…"
             />
           </div>
 
           {error && <p className="text-clay text-sm">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gold text-duskdeep rounded-lg py-3 font-semibold hover:bg-goldlight transition-colors disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading} className="w-full btn-gold disabled:opacity-50">
             {loading ? "Matching…" : "Find matching sellers"}
           </button>
         </form>
@@ -175,6 +175,12 @@ export default function MatchFinder() {
         {!result && (
           <div className="bg-white border border-dashed border-ink/20 rounded-2xl p-10 text-center text-ink/50">
             Submit a request to see ranked seller matches with a score breakdown.
+          </div>
+        )}
+
+        {result && result.matches.length === 0 && (
+          <div className="bg-white border border-dashed border-ink/20 rounded-2xl p-10 text-center text-ink/50">
+            No sellers are listing {cropName(form.crop)} yet. Try another crop or post a listing first.
           </div>
         )}
 
@@ -195,14 +201,15 @@ export default function MatchFinder() {
                 </div>
               </div>
 
-              <p className="text-sm text-ink/70 mt-3">{m.listing.description}</p>
+              {m.listing.description && <p className="text-sm text-ink/70 mt-3">{m.listing.description}</p>}
 
-              <div className="flex justify-between items-center mt-3 text-sm font-mono text-ink/60">
+              <div className="flex flex-wrap justify-between items-center gap-2 mt-3 text-sm font-mono text-ink/60">
                 <span>
                   {m.listing.quantity.toLocaleString()} {m.listing.unit} available
                 </span>
                 <span>
-                  N${m.listing.askingPrice.toLocaleString()}/{m.listing.unit} · {m.listing.contact}
+                  N${m.listing.askingPrice.toLocaleString()}/{m.listing.unit}
+                  {m.listing.contact ? ` · ${m.listing.contact}` : ""}
                 </span>
               </div>
 

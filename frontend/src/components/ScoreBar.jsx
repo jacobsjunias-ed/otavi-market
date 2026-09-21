@@ -7,7 +7,7 @@ export default function ScoreBar({ label, value }) {
         <span>{value}%</span>
       </div>
       <div className="h-1.5 w-full bg-ink/10 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${value}%` }} />
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
       </div>
     </div>
   );

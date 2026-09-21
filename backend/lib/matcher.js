@@ -3,8 +3,6 @@
 // with rule-based fit scores for price, quantity and regional proximity.
 // Same core approach as GradLink's job-matching engine, re-applied to produce markets.
 
-const { REGIONS } = require("../data/seedData");
-
 const STOPWORDS = new Set([
   "the", "a", "an", "and", "or", "of", "to", "for", "with", "on", "in", "at",
   "is", "are", "be", "can", "will", "from", "by", "this", "that", "it", "as",
@@ -61,9 +59,9 @@ function cosineSimilarity(vecA, vecB) {
 
 // Simple regional proximity: same region = 1, neighbouring "cluster" = 0.55, else 0.25
 const REGION_CLUSTERS = {
-  north: ["zambezi", "kavango-east", "kavango-west", "ohangwena", "omusati", "oshana", "oshikoto"],
+  north: ["zambezi", "kavango-east", "kavango-west", "ohangwena", "omusati", "oshana", "oshikoto", "kunene"],
   central: ["otjozondjupa", "khomas", "erongo", "omaheke"],
-  south: ["hardap", "karas", "kunene"],
+  south: ["hardap", "karas"],
 };
 
 function clusterOf(regionId) {
@@ -111,8 +109,7 @@ function matchListingsToBuyer(buyerRequest, listings) {
   const candidates = listings.filter((l) => l.crop === buyerRequest.crop);
   if (candidates.length === 0) return [];
 
-  const docs = candidates.map(buildDocument);
-  docs.push(buildDocument(buyerRequest.description ? buyerRequest : { ...buyerRequest, description: buyerRequest.description }));
+  const docs = [...candidates.map(buildDocument), buildDocument(buyerRequest)];
   const vectors = computeTfIdf(docs);
   const buyerVec = vectors[vectors.length - 1];
 
@@ -152,9 +149,12 @@ function matchBuyersToListing(listing, buyerRequests) {
   if (candidates.length === 0) return [];
 
   return candidates
-    .map((buyerRequest) => matchListingsToBuyer(buyerRequest, [listing])[0])
+    .map((buyerRequest) => {
+      const match = matchListingsToBuyer(buyerRequest, [listing])[0];
+      if (!match) return null;
+      return { ...match, buyerRequest };
+    })
     .filter(Boolean)
-    .map((m, idx) => ({ ...m, buyerRequest: candidates[idx] }))
     .sort((a, b) => b.score - a.score);
 }
 

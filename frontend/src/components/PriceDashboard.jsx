@@ -1,29 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { api } from "../api";
+import { useCatalog } from "../CatalogContext";
 
 const REGION_COLORS = ["#D9A441", "#7A8C5B", "#A8462F", "#1B2A4A", "#8A9BB5", "#C97B4A"];
 
 export default function PriceDashboard() {
-  const [regions, setRegions] = useState([]);
-  const [crops, setCrops] = useState([]);
+  const { crops, regionName, cropName } = useCatalog();
   const [selectedCrop, setSelectedCrop] = useState("maize");
+  const [selectedRegion, setSelectedRegion] = useState("");
   const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([api.getRegions(), api.getCrops()])
-      .then(([r, c]) => {
-        setRegions(r);
-        setCrops(c);
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-
-  useEffect(() => {
     if (!selectedCrop) return;
     setLoading(true);
+    setError(null);
     api
       .getPrices({ crop: selectedCrop })
       .then(setPrices)
@@ -31,14 +24,17 @@ export default function PriceDashboard() {
       .finally(() => setLoading(false));
   }, [selectedCrop]);
 
-  const { chartData, regionIds, unit, latestByRegion } = useMemo(() => {
-    if (!prices.length) return { chartData: [], regionIds: [], unit: "", latestByRegion: [] };
-    const months = [...new Set(prices.map((p) => p.month))];
+  const { chartData, regionIds, allRegionIds, unit, latestByRegion } = useMemo(() => {
+    const allIds = [...new Set(prices.map((p) => p.region))];
+    const scoped = selectedRegion ? prices.filter((p) => p.region === selectedRegion) : prices;
+    if (!scoped.length) return { chartData: [], regionIds: [], allRegionIds: allIds, unit: "", latestByRegion: [] };
+    const months = [...new Set(scoped.map((p) => p.month))];
     const rIds = [...new Set(prices.map((p) => p.region))];
+    const chartIds = selectedRegion ? [selectedRegion] : rIds;
     const data = months.map((month) => {
       const row = { month };
-      rIds.forEach((rid) => {
-        const point = prices.find((p) => p.month === month && p.region === rid);
+      chartIds.forEach((rid) => {
+        const point = scoped.find((p) => p.month === month && p.region === rid);
         row[rid] = point ? point.price : null;
       });
       return row;
@@ -51,11 +47,8 @@ export default function PriceDashboard() {
       const trend = first && last ? ((last.price - first.price) / first.price) * 100 : 0;
       return { region: rid, price: last?.price ?? 0, trend };
     });
-    return { chartData: data, regionIds: rIds, unit: cropObj?.unit || "", latestByRegion: latest };
-  }, [prices, crops, selectedCrop]);
-
-  const regionName = (id) => regions.find((r) => r.id === id)?.name || id;
-  const cropName = (id) => crops.find((c) => c.id === id)?.name || id;
+    return { chartData: data, regionIds: chartIds, allRegionIds: rIds, unit: cropObj?.unit || "", latestByRegion: latest };
+  }, [prices, crops, selectedCrop, selectedRegion]);
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-10">
@@ -66,24 +59,45 @@ export default function PriceDashboard() {
             {cropName(selectedCrop)} prices across regions
           </h1>
         </div>
-        <select
-          value={selectedCrop}
-          onChange={(e) => setSelectedCrop(e.target.value)}
-          className="border border-ink/20 bg-white rounded-lg px-4 py-2 font-body text-sm"
-        >
-          {crops.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-3">
+          <select
+            aria-label="Crop"
+            value={selectedCrop}
+            onChange={(e) => {
+              setSelectedCrop(e.target.value);
+              setSelectedRegion("");
+            }}
+            className="field !mt-0 min-w-[12rem]"
+          >
+            {crops.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Region filter"
+            value={selectedRegion}
+            onChange={(e) => setSelectedRegion(e.target.value)}
+            className="field !mt-0 min-w-[12rem]"
+          >
+            <option value="">All producing regions</option>
+            {allRegionIds.map((rid) => (
+              <option key={rid} value={rid}>
+                {regionName(rid)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {error && <p className="text-clay mb-4">{error} — is the backend running on port 4000?</p>}
+      {error && <p className="text-clay mb-4">{error}</p>}
 
       <div className="bg-white border border-ink/10 rounded-2xl p-6 shadow-sm mb-8">
         {loading ? (
           <div className="h-72 flex items-center justify-center text-ink/50 font-mono text-sm">Loading…</div>
+        ) : chartData.length === 0 ? (
+          <div className="h-72 flex items-center justify-center text-ink/50 text-sm">No price series for this filter.</div>
         ) : (
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -95,7 +109,7 @@ export default function PriceDashboard() {
                 label={{ value: `N$/${unit}`, angle: -90, position: "insideLeft", fontSize: 11 }}
               />
               <Tooltip
-                formatter={(value) => [`N$${Number(value).toLocaleString()}`, ""]}
+                formatter={(value, name) => [`N$${Number(value).toLocaleString()}`, regionName(name)]}
                 labelFormatter={(l) => `Month: ${l}`}
               />
               <Legend formatter={(value) => regionName(value)} wrapperStyle={{ fontSize: 12 }} />
@@ -119,7 +133,14 @@ export default function PriceDashboard() {
         {latestByRegion
           .sort((a, b) => b.price - a.price)
           .map((r) => (
-            <div key={r.region} className="bg-white border border-ink/10 rounded-xl p-4">
+            <button
+              type="button"
+              key={r.region}
+              onClick={() => setSelectedRegion(r.region === selectedRegion ? "" : r.region)}
+              className={`bg-white border rounded-xl p-4 text-left transition-colors ${
+                selectedRegion === r.region ? "border-gold ring-1 ring-gold" : "border-ink/10 hover:border-gold/40"
+              }`}
+            >
               <p className="font-mono text-xs uppercase tracking-widest text-ink/50">{regionName(r.region)}</p>
               <p className="font-display text-2xl font-semibold text-dusk mt-1">
                 N${r.price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -128,7 +149,7 @@ export default function PriceDashboard() {
               <p className={`text-sm font-mono mt-1 ${r.trend >= 0 ? "text-sage" : "text-clay"}`}>
                 {r.trend >= 0 ? "▲" : "▼"} {Math.abs(r.trend).toFixed(1)}% over 12 months
               </p>
-            </div>
+            </button>
           ))}
       </div>
     </section>

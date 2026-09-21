@@ -1,21 +1,24 @@
 // Seed / mock data representing Namibia's agricultural regions, crops and market activity.
 // Prices are illustrative (modelled loosely on NAB/AMTA-style reporting patterns), not live data.
 
+const QUALITY_GRADES = ["Grade A", "Grade B", "Export Grade", "Ungraded"];
+const BUYER_TYPES = ["Buyer", "Retail supplier", "Processor", "Exporter"];
+
 const REGIONS = [
-  { id: "zambezi", name: "Zambezi", staples: ["Maize", "Rice", "Sorghum"] },
-  { id: "kavango-east", name: "Kavango East", staples: ["Maize", "Mahangu", "Groundnuts"] },
-  { id: "kavango-west", name: "Kavango West", staples: ["Mahangu", "Maize", "Beans"] },
-  { id: "ohangwena", name: "Ohangwena", staples: ["Mahangu", "Sorghum", "Beans"] },
-  { id: "omusati", name: "Omusati", staples: ["Mahangu", "Cattle", "Goats"] },
-  { id: "oshana", name: "Oshana", staples: ["Mahangu", "Cabbage", "Onions"] },
-  { id: "oshikoto", name: "Oshikoto", staples: ["Mahangu", "Maize", "Cattle"] },
-  { id: "otjozondjupa", name: "Otjozondjupa", staples: ["Cattle", "Maize", "Watermelon"] },
-  { id: "khomas", name: "Khomas", staples: ["Tomatoes", "Onions", "Cabbage"] },
-  { id: "erongo", name: "Erongo", staples: ["Tomatoes", "Grapes", "Goats"] },
-  { id: "hardap", name: "Hardap", staples: ["Grapes", "Wheat", "Cattle"] },
-  { id: "karas", name: "Karas", staples: ["Grapes", "Dates", "Cattle"] },
-  { id: "kunene", name: "Kunene", staples: ["Cattle", "Goats", "Maize"] },
-  { id: "omaheke", name: "Omaheke", staples: ["Cattle", "Goats", "Sorghum"] },
+  { id: "zambezi", name: "Zambezi", staples: ["maize", "rice", "sorghum"] },
+  { id: "kavango-east", name: "Kavango East", staples: ["maize", "mahangu", "groundnuts"] },
+  { id: "kavango-west", name: "Kavango West", staples: ["mahangu", "maize", "beans"] },
+  { id: "ohangwena", name: "Ohangwena", staples: ["mahangu", "sorghum", "beans"] },
+  { id: "omusati", name: "Omusati", staples: ["mahangu", "cattle", "goats"] },
+  { id: "oshana", name: "Oshana", staples: ["mahangu", "cabbage", "onions"] },
+  { id: "oshikoto", name: "Oshikoto", staples: ["mahangu", "maize", "cattle"] },
+  { id: "otjozondjupa", name: "Otjozondjupa", staples: ["cattle", "maize", "watermelon"] },
+  { id: "khomas", name: "Khomas", staples: ["tomatoes", "onions", "cabbage"] },
+  { id: "erongo", name: "Erongo", staples: ["tomatoes", "grapes", "goats"] },
+  { id: "hardap", name: "Hardap", staples: ["grapes", "wheat", "cattle"] },
+  { id: "karas", name: "Karas", staples: ["grapes", "dates", "cattle"] },
+  { id: "kunene", name: "Kunene", staples: ["cattle", "goats", "maize"] },
+  { id: "omaheke", name: "Omaheke", staples: ["cattle", "goats", "sorghum"] },
 ];
 
 const CROPS = [
@@ -49,7 +52,7 @@ function buildPriceHistory() {
   let seed = 1;
 
   CROPS.forEach((crop) => {
-    const regionsForCrop = REGIONS.filter((r) => r.staples.includes(crop.name));
+    const regionsForCrop = REGIONS.filter((r) => r.staples.includes(crop.id));
     const applicableRegions = regionsForCrop.length ? regionsForCrop : REGIONS.slice(0, 3);
 
     applicableRegions.forEach((region) => {
@@ -253,4 +256,12 @@ const BUYER_REQUESTS = [
   },
 ];
 
-module.exports = { REGIONS, CROPS, PRICE_HISTORY, SELLER_LISTINGS, BUYER_REQUESTS };
+module.exports = {
+  REGIONS,
+  CROPS,
+  QUALITY_GRADES,
+  BUYER_TYPES,
+  PRICE_HISTORY,
+  SELLER_LISTINGS,
+  BUYER_REQUESTS,
+};

@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { useCatalog } from "../CatalogContext";
 
 const emptyForm = {
   farmerName: "",
   region: "",
   crop: "",
   quantity: "",
-  unit: "",
   askingPrice: "",
   qualityGrade: "Grade A",
   description: "",
@@ -14,35 +14,38 @@ const emptyForm = {
 };
 
 export default function ListingsBoard() {
-  const [regions, setRegions] = useState([]);
-  const [crops, setCrops] = useState([]);
+  const { regions, crops, qualityGrades, regionName, cropName } = useCatalog();
   const [listings, setListings] = useState([]);
   const [form, setForm] = useState(emptyForm);
+  const [filterCrop, setFilterCrop] = useState("");
+  const [filterRegion, setFilterRegion] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  const refresh = () => api.getListings().then(setListings).catch((e) => setError(e.message));
+  const refresh = () =>
+    api
+      .getListings()
+      .then(setListings)
+      .catch((e) => setError(e.message));
 
   useEffect(() => {
-    Promise.all([api.getRegions(), api.getCrops()])
-      .then(([r, c]) => {
-        setRegions(r);
-        setCrops(c);
-      })
-      .catch((e) => setError(e.message));
     refresh();
   }, []);
 
   const selectedCropObj = crops.find((c) => c.id === form.crop);
 
+  const visible = useMemo(
+    () =>
+      listings.filter(
+        (l) => (!filterCrop || l.crop === filterCrop) && (!filterRegion || l.region === filterRegion)
+      ),
+    [listings, filterCrop, filterRegion]
+  );
+
   const handleChange = (field) => (e) => {
     const value = e.target.value;
-    setForm((f) => ({
-      ...f,
-      [field]: value,
-      ...(field === "crop" ? { unit: crops.find((c) => c.id === value)?.unit || "" } : {}),
-    }));
+    setForm((f) => ({ ...f, [field]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -66,9 +69,6 @@ export default function ListingsBoard() {
     }
   };
 
-  const regionName = (id) => regions.find((r) => r.id === id)?.name || id;
-  const cropName = (id) => crops.find((c) => c.id === id)?.name || id;
-
   return (
     <section className="max-w-6xl mx-auto px-6 py-10 grid lg:grid-cols-[1fr,1.2fr] gap-10">
       <div>
@@ -77,25 +77,25 @@ export default function ListingsBoard() {
 
         <form onSubmit={handleSubmit} className="bg-white border border-ink/10 rounded-2xl p-6 space-y-4">
           <div>
-            <label className="text-sm font-medium text-ink/80">Your name / farm</label>
+            <label className="text-sm font-medium text-ink/80" htmlFor="farmerName">
+              Your name / farm
+            </label>
             <input
+              id="farmerName"
               required
               value={form.farmerName}
               onChange={handleChange("farmerName")}
-              className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+              className="field"
               placeholder="e.g. Nangolo Shikongo"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-ink/80">Region</label>
-              <select
-                required
-                value={form.region}
-                onChange={handleChange("region")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
-              >
+              <label className="text-sm font-medium text-ink/80" htmlFor="listing-region">
+                Region
+              </label>
+              <select id="listing-region" required value={form.region} onChange={handleChange("region")} className="field">
                 <option value="">Select…</option>
                 {regions.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -105,13 +105,10 @@ export default function ListingsBoard() {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-ink/80">Crop / livestock</label>
-              <select
-                required
-                value={form.crop}
-                onChange={handleChange("crop")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
-              >
+              <label className="text-sm font-medium text-ink/80" htmlFor="listing-crop">
+                Crop / livestock
+              </label>
+              <select id="listing-crop" required value={form.crop} onChange={handleChange("crop")} className="field">
                 <option value="">Select…</option>
                 {crops.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -124,62 +121,72 @@ export default function ListingsBoard() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-ink/80">
+              <label className="text-sm font-medium text-ink/80" htmlFor="quantity">
                 Quantity {selectedCropObj ? `(${selectedCropObj.unit})` : ""}
               </label>
               <input
+                id="quantity"
                 required
                 type="number"
-                min="0"
+                min="0.01"
+                step="any"
                 value={form.quantity}
                 onChange={handleChange("quantity")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+                className="field"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-ink/80">Asking price (N$)</label>
+              <label className="text-sm font-medium text-ink/80" htmlFor="askingPrice">
+                Asking price (N$)
+              </label>
               <input
+                id="askingPrice"
                 required
                 type="number"
-                min="0"
+                min="0.01"
+                step="any"
                 value={form.askingPrice}
                 onChange={handleChange("askingPrice")}
-                className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+                className="field"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-ink/80">Quality grade</label>
-            <select
-              value={form.qualityGrade}
-              onChange={handleChange("qualityGrade")}
-              className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
-            >
-              <option>Grade A</option>
-              <option>Grade B</option>
-              <option>Export Grade</option>
-              <option>Ungraded</option>
+            <label className="text-sm font-medium text-ink/80" htmlFor="qualityGrade">
+              Quality grade
+            </label>
+            <select id="qualityGrade" value={form.qualityGrade} onChange={handleChange("qualityGrade")} className="field">
+              {qualityGrades.map((g) => (
+                <option key={g}>{g}</option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-ink/80">Description</label>
+            <label className="text-sm font-medium text-ink/80" htmlFor="description">
+              Description
+            </label>
             <textarea
+              id="description"
               value={form.description}
               onChange={handleChange("description")}
               rows={3}
-              className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+              maxLength={500}
+              className="field"
               placeholder="Condition, storage, transport availability…"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-ink/80">Contact number</label>
+            <label className="text-sm font-medium text-ink/80" htmlFor="contact">
+              Contact number
+            </label>
             <input
+              id="contact"
               value={form.contact}
               onChange={handleChange("contact")}
-              className="w-full mt-1 border border-ink/20 rounded-lg px-3 py-2"
+              className="field"
               placeholder="081 XXX XXXX"
             />
           </div>
@@ -187,11 +194,7 @@ export default function ListingsBoard() {
           {error && <p className="text-clay text-sm">{error}</p>}
           {success && <p className="text-sage text-sm">Listing posted successfully.</p>}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-dusk text-sand rounded-lg py-3 font-medium hover:bg-duskdeep transition-colors disabled:opacity-50"
-          >
+          <button type="submit" disabled={submitting} className="w-full btn-primary disabled:opacity-50">
             {submitting ? "Posting…" : "Post listing"}
           </button>
         </form>
@@ -199,9 +202,37 @@ export default function ListingsBoard() {
 
       <div>
         <p className="font-mono text-xs uppercase tracking-widest text-gold mb-1">Live board</p>
-        <h2 className="font-display text-2xl font-semibold text-dusk mb-6">Current listings ({listings.length})</h2>
+        <h2 className="font-display text-2xl font-semibold text-dusk mb-4">Current listings ({visible.length})</h2>
+        <div className="flex flex-wrap gap-3 mb-4">
+          <select aria-label="Filter crop" value={filterCrop} onChange={(e) => setFilterCrop(e.target.value)} className="field !mt-0">
+            <option value="">All crops</option>
+            {crops.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filter region"
+            value={filterRegion}
+            onChange={(e) => setFilterRegion(e.target.value)}
+            className="field !mt-0"
+          >
+            <option value="">All regions</option>
+            {regions.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="space-y-3 max-h-[720px] overflow-y-auto pr-1">
-          {listings.map((l) => (
+          {visible.length === 0 && (
+            <div className="bg-white border border-dashed border-ink/20 rounded-2xl p-8 text-center text-ink/50 text-sm">
+              No listings match these filters.
+            </div>
+          )}
+          {visible.map((l) => (
             <div key={l.id} className="bg-white border border-ink/10 rounded-xl p-4">
               <div className="flex justify-between items-start gap-3">
                 <div>
@@ -214,7 +245,7 @@ export default function ListingsBoard() {
                   {l.qualityGrade}
                 </span>
               </div>
-              <p className="text-sm text-ink/70 mt-2">{l.description}</p>
+              {l.description && <p className="text-sm text-ink/70 mt-2">{l.description}</p>}
               <div className="flex justify-between items-center mt-3 text-sm">
                 <span className="font-mono text-ink/60">
                   {l.quantity.toLocaleString()} {l.unit} available

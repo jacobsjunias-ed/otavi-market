@@ -23,6 +23,21 @@ body {
   }
 }
 
+@layer components {
+  .field {
+    @apply w-full mt-1 border border-ink/20 bg-white rounded-lg px-3 py-2 text-sm outline-none focus:border-gold focus:ring-1 focus:ring-gold;
+  }
+  .btn-primary {
+    @apply bg-dusk text-sand rounded-lg py-3 font-medium hover:bg-duskdeep transition-colors;
+  }
+  .btn-gold {
+    @apply bg-gold text-duskdeep rounded-lg px-5 py-3 font-semibold hover:bg-goldlight transition-colors;
+  }
+  .btn-ghost {
+    @apply border border-sand/30 text-sand rounded-lg px-5 py-3 font-medium hover:bg-white/10 transition-colors;
+  }
+}
+
 .ticker-track {
   animation: ticker 32s linear infinite;
 }
