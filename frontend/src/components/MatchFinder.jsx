@@ -128,7 +128,7 @@ export default function MatchFinder() {
             </div>
             <div>
               <label className="text-sm font-medium text-ink/80" htmlFor="maxPrice">
-                Max price (N$)
+                Max price (N\$)
               </label>
               <input
                 id="maxPrice"
@@ -186,11 +186,23 @@ export default function MatchFinder() {
 
         <div className="space-y-4">
           {result?.matches.map((m, i) => (
-            <div key={m.listing.id} className="bg-white border border-ink/10 rounded-xl p-5">
+            <div key={m.listing.id} className="bg-white border border-ink/10 rounded-xl p-5 shadow-sm hover:shadow transition-shadow">
               <div className="flex justify-between items-start gap-4">
                 <div>
-                  <p className="font-mono text-xs text-gold">#{i + 1} match</p>
-                  <p className="font-display text-lg font-semibold text-dusk">{m.listing.farmerName}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs text-gold font-bold">#{i + 1} match</span>
+                    {/* === ⚡ PROXIMITY BADGE INJECTION === */}
+                    {m.listing.distanceKm !== undefined && m.listing.distanceKm !== null && (
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                        m.listing.distanceKm <= 150 
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        📍 {m.listing.distanceKm} km away {m.listing.distanceKm <= 150 ? '(Local Hub)' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-display text-lg font-semibold text-dusk mt-1">{m.listing.farmerName}</p>
                   <p className="text-sm text-ink/60">
                     {cropName(m.listing.crop)} · {regionName(m.listing.region)} · {m.listing.qualityGrade}
                   </p>
@@ -208,16 +220,17 @@ export default function MatchFinder() {
                   {m.listing.quantity.toLocaleString()} {m.listing.unit} available
                 </span>
                 <span>
-                  N${m.listing.askingPrice.toLocaleString()}/{m.listing.unit}
+                  N\${m.listing.askingPrice.toLocaleString()}/{m.listing.unit}
                   {m.listing.contact ? ` · ${m.listing.contact}` : ""}
                 </span>
               </div>
 
+              {/* Component breakdown visualization panel matching loops */}
               <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-ink/10">
-                <ScoreBar label="Price fit" value={m.breakdown.priceFit} />
-                <ScoreBar label="Quantity fit" value={m.breakdown.quantityFit} />
-                <ScoreBar label="Region proximity" value={m.breakdown.regionProximity} />
-                <ScoreBar label="Listing relevance" value={m.breakdown.descriptionRelevance} />
+                <ScoreBar label="Price Fit" score={m.breakdown?.priceFit ?? 0.5} />
+                <ScoreBar label="Quantity Fit" score={m.breakdown?.quantityFit ?? 0.5} />
+                <ScoreBar label="Description Match" score={m.breakdown?.textMatch ?? 0.5} />
+                <ScoreBar label="Regional Proximity" score={m.breakdown?.proximityFit ?? 0.5} />
               </div>
             </div>
           ))}

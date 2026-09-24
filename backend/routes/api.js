@@ -8,6 +8,7 @@ const {
   PRICE_HISTORY,
   SELLER_LISTINGS,
   BUYER_REQUESTS,
+  getRegionCoordinates,
 } = require("../data/seedData");
 const { matchListingsToBuyer, matchBuyersToListing } = require("../lib/matcher");
 const { nextId, parseListing, parseBuyerRequest, sendError } = require("../lib/validate");
@@ -24,6 +25,17 @@ router.get("/meta", (req, res) => {
 router.get("/regions", (req, res) => res.json(REGIONS));
 router.get("/crops", (req, res) => res.json(CROPS));
 
+router.get("/map-data", (req, res) => {
+  const enrich = (item, type) => {
+    const coords = getRegionCoordinates(item.region) || {};
+    return { ...item, type, lat: coords.lat, lng: coords.lng };
+  };
+
+  const sellers = listings.map((l) => enrich(l, "seller"));
+  const buyers = buyerRequests.map((b) => enrich(b, "buyer"));
+
+  res.json({ sellers, buyers });
+});
 router.get("/prices", (req, res) => {
   const { crop, region } = req.query;
   let rows = PRICE_HISTORY;
@@ -31,6 +43,7 @@ router.get("/prices", (req, res) => {
   if (region) rows = rows.filter((r) => r.region === region);
   res.json(rows);
 });
+
 
 router.get("/listings", (req, res) => {
   const { crop, region } = req.query;

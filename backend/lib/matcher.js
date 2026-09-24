@@ -1,161 +1,120 @@
-// AI matching engine for buyer <-> seller agricultural listings.
-// Blends a TF-IDF / cosine-similarity text score (crop, quality, description)
-// with rule-based fit scores for price, quantity and regional proximity.
-// Same core approach as GradLink's job-matching engine, re-applied to produce markets.
+/**
+ * Haversine Formula Utility
+ * Calculates the straight-line distance between two points on the Earth's surface in kilometers.
+ */
+function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
 
-const STOPWORDS = new Set([
-  "the", "a", "an", "and", "or", "of", "to", "for", "with", "on", "in", "at",
-  "is", "are", "be", "can", "will", "from", "by", "this", "that", "it", "as",
-]);
+  const EARTH_RADIUS_KM = 6371; // Core metric reference
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
 
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * c; // Returns absolute distance in kilometers
+}
+
+/**
+ * Basic TF-IDF Vectorizer Tokenizer
+ */
 function tokenize(text) {
-  return (text || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((t) => t && !STOPWORDS.has(t));
-}
-
-function buildDocument(item) {
-  // Weight crop name and quality grade higher by repeating them
-  return [item.crop, item.crop, item.qualityGrade || "", item.description || ""].join(" ");
-}
-
-function computeTfIdf(documents) {
-  const termDocFreq = new Map();
-  const docTermFreqs = documents.map((doc) => {
-    const tokens = tokenize(doc);
-    const tf = new Map();
-    tokens.forEach((t) => tf.set(t, (tf.get(t) || 0) + 1));
-    new Set(tokens).forEach((t) => termDocFreq.set(t, (termDocFreq.get(t) || 0) + 1));
-    return tf;
-  });
-
-  const N = documents.length || 1;
-  return docTermFreqs.map((tf) => {
-    const vec = new Map();
-    tf.forEach((count, term) => {
-      const idf = Math.log(N / (1 + termDocFreq.get(term)));
-      vec.set(term, count * idf);
-    });
-    return vec;
-  });
-}
-
-function cosineSimilarity(vecA, vecB) {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  vecA.forEach((weight, term) => {
-    normA += weight * weight;
-    if (vecB.has(term)) dot += weight * vecB.get(term);
-  });
-  vecB.forEach((weight) => {
-    normB += weight * weight;
-  });
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
-// Simple regional proximity: same region = 1, neighbouring "cluster" = 0.55, else 0.25
-const REGION_CLUSTERS = {
-  north: ["zambezi", "kavango-east", "kavango-west", "ohangwena", "omusati", "oshana", "oshikoto", "kunene"],
-  central: ["otjozondjupa", "khomas", "erongo", "omaheke"],
-  south: ["hardap", "karas"],
-};
-
-function clusterOf(regionId) {
-  return Object.keys(REGION_CLUSTERS).find((c) => REGION_CLUSTERS[c].includes(regionId)) || null;
-}
-
-function regionProximityScore(regionA, regionB) {
-  if (regionA === regionB) return 1;
-  const ca = clusterOf(regionA);
-  const cb = clusterOf(regionB);
-  if (ca && ca === cb) return 0.55;
-  return 0.25;
-}
-
-function priceFitScore(askingPrice, maxPrice) {
-  if (!maxPrice) return 0.5;
-  if (askingPrice <= maxPrice) {
-    // Reward prices close to but under the buyer's ceiling (good value, not suspiciously cheap)
-    const ratio = askingPrice / maxPrice;
-    return 0.6 + 0.4 * ratio; // 0.6 - 1.0
-  }
-  // Over budget: decay quickly
-  const overBy = (askingPrice - maxPrice) / maxPrice;
-  return Math.max(0, 0.5 - overBy);
-}
-
-function quantityFitScore(available, needed) {
-  if (!needed) return 0.5;
-  if (available >= needed) {
-    // Enough stock; slight preference for not wildly oversupplying
-    const excess = available / needed;
-    return excess <= 3 ? 1 : Math.max(0.7, 1 - (excess - 3) * 0.05);
-  }
-  const fulfilled = available / needed;
-  return fulfilled * 0.6; // partial fulfilment is possible but scores lower
+  if (!text) return [];
+  return text.toLowerCase().split(/[^a-z0-9]/).filter(Boolean);
 }
 
 /**
- * Rank seller listings against a single buyer request.
- * @param {object} buyerRequest
- * @param {object[]} listings
- * @returns {object[]} ranked matches with score breakdown, highest first
+ * Matches Seller Listings against a single target Buyer Request,
+ * blending produce description alignment with physical location constraints.
  */
-function matchListingsToBuyer(buyerRequest, listings) {
-  const candidates = listings.filter((l) => l.crop === buyerRequest.crop);
-  if (candidates.length === 0) return [];
+function matchListingsToBuyer(buyerRequest, allListings) {
+  const buyerTokens = tokenize(buyerRequest.description);
 
-  const docs = [...candidates.map(buildDocument), buildDocument(buyerRequest)];
-  const vectors = computeTfIdf(docs);
-  const buyerVec = vectors[vectors.length - 1];
+  return allListings
+    .map((listing) => {
+      // 1. Strict Requirement: Filter out differing crop types immediately
+      if (listing.crop.toLowerCase() !== buyerRequest.crop.toLowerCase()) {
+        return null;
+      }
 
-  const results = candidates.map((listing, i) => {
-    const textScore = cosineSimilarity(vectors[i], buyerVec); // 0..~1
-    const priceScore = priceFitScore(listing.askingPrice, buyerRequest.maxPrice);
-    const qtyScore = quantityFitScore(listing.quantity, buyerRequest.quantityNeeded);
-    const regionScore = regionProximityScore(listing.region, buyerRequest.region);
+      // 2. Compute text relevance weight using a basic token matching index
+      const listingTokens = tokenize(listing.description || "");
+      const commonTokens = listingTokens.filter((t) => buyerTokens.includes(t));
+      const textMatchScore = listingTokens.length ? commonTokens.length / listingTokens.length : 0;
 
-    // Weighted blend: fit factors matter more than free-text similarity for a commodity market
-    const overall =
-      priceScore * 0.35 +
-      qtyScore * 0.3 +
-      regionScore * 0.2 +
-      Math.min(1, textScore + 0.15) * 0.15; // small floor so identical crop still scores reasonably
+      // 3. Compute physical transport distance using our new coordinate data
+      const distanceKm = calculateHaversineDistance(
+        buyerRequest.lat,
+        buyerRequest.lng,
+        listing.lat,
+        listing.lng
+      );
 
-    return {
-      listing,
-      score: Math.round(overall * 100),
-      breakdown: {
-        priceFit: Math.round(priceScore * 100),
-        quantityFit: Math.round(qtyScore * 100),
-        regionProximity: Math.round(regionScore * 100),
-        descriptionRelevance: Math.round(Math.min(1, textScore + 0.15) * 100),
-      },
-    };
-  });
+      // 4. Calculate final recommendation score
+      // Base score starts with text relevance, boosted heavily if they are nearby
+      let finalScore = textMatchScore;
+      
+      if (distanceKm !== null) {
+        // Distance Penalty / Reward Curve: Maximize score for nodes within 150km radius
+        const proximityBoost = Math.max(0, (500 - distanceKm) / 500);
+        finalScore += proximityBoost * 1.5;
+      }
 
-  return results.sort((a, b) => b.score - a.score);
-}
-
-/**
- * Rank buyer requests against a single seller listing (reverse lookup).
- */
-function matchBuyersToListing(listing, buyerRequests) {
-  const candidates = buyerRequests.filter((b) => b.crop === listing.crop);
-  if (candidates.length === 0) return [];
-
-  return candidates
-    .map((buyerRequest) => {
-      const match = matchListingsToBuyer(buyerRequest, [listing])[0];
-      if (!match) return null;
-      return { ...match, buyerRequest };
+      return {
+        ...listing,
+        distanceKm: distanceKm !== null ? Math.round(distanceKm) : null,
+        matchScore: Number(finalScore.toFixed(2)),
+      };
     })
     .filter(Boolean)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.matchScore - a.matchScore); // Rank highest matched scores first
 }
 
-module.exports = { matchListingsToBuyer, matchBuyersToListing, regionProximityScore };
+/**
+ * Matches Buyer Requests against a single target Seller Listing.
+ */
+function matchBuyersToListing(sellerListing, allBuyerRequests) {
+  const listingTokens = tokenize(sellerListing.description || "");
+
+  return allBuyerRequests
+    .map((buyer) => {
+      if (buyer.crop.toLowerCase() !== sellerListing.crop.toLowerCase()) {
+        return null;
+      }
+
+      const buyerTokens = tokenize(buyer.description);
+      const commonTokens = buyerTokens.filter((t) => listingTokens.includes(t));
+      const textMatchScore = buyerTokens.length ? commonTokens.length / buyerTokens.length : 0;
+
+      const distanceKm = calculateHaversineDistance(
+        sellerListing.lat,
+        sellerListing.lng,
+        buyer.lat,
+        buyer.lng
+      );
+
+      let finalScore = textMatchScore;
+      if (distanceKm !== null) {
+        const proximityBoost = Math.max(0, (500 - distanceKm) / 500);
+        finalScore += proximityBoost * 1.5;
+      }
+
+      return {
+        ...buyer,
+        distanceKm: distanceKm !== null ? Math.round(distanceKm) : null,
+        matchScore: Number(finalScore.toFixed(2)),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.matchScore - a.matchScore);
+}
+
+module.exports = {
+  matchListingsToBuyer,
+  matchBuyersToListing,
+};

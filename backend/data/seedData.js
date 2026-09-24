@@ -5,21 +5,27 @@ const QUALITY_GRADES = ["Grade A", "Grade B", "Export Grade", "Ungraded"];
 const BUYER_TYPES = ["Buyer", "Retail supplier", "Processor", "Exporter"];
 
 const REGIONS = [
-  { id: "zambezi", name: "Zambezi", staples: ["maize", "rice", "sorghum"] },
-  { id: "kavango-east", name: "Kavango East", staples: ["maize", "mahangu", "groundnuts"] },
-  { id: "kavango-west", name: "Kavango West", staples: ["mahangu", "maize", "beans"] },
-  { id: "ohangwena", name: "Ohangwena", staples: ["mahangu", "sorghum", "beans"] },
-  { id: "omusati", name: "Omusati", staples: ["mahangu", "cattle", "goats"] },
-  { id: "oshana", name: "Oshana", staples: ["mahangu", "cabbage", "onions"] },
-  { id: "oshikoto", name: "Oshikoto", staples: ["mahangu", "maize", "cattle"] },
-  { id: "otjozondjupa", name: "Otjozondjupa", staples: ["cattle", "maize", "watermelon"] },
-  { id: "khomas", name: "Khomas", staples: ["tomatoes", "onions", "cabbage"] },
-  { id: "erongo", name: "Erongo", staples: ["tomatoes", "grapes", "goats"] },
-  { id: "hardap", name: "Hardap", staples: ["grapes", "wheat", "cattle"] },
-  { id: "karas", name: "Karas", staples: ["grapes", "dates", "cattle"] },
-  { id: "kunene", name: "Kunene", staples: ["cattle", "goats", "maize"] },
-  { id: "omaheke", name: "Omaheke", staples: ["cattle", "goats", "sorghum"] },
-];
+  { id: "zambezi", name: "Zambezi", staples: ["maize", "rice", "sorghum"], lat: -17.5000, lng: 24.2667 },
+  { id: "kavango-east", name: "Kavango East", staples: ["maize", "mahangu", "groundnuts"], lat: -17.9333, lng: 19.7667 },
+  { id: "kavango-west", name: "Kavango West", staples: ["mahangu", "maize", "beans"], lat: -17.6167, lng: 18.6167 },
+  { id: "ohangwena", name: "Ohangwena", staples: ["mahangu", "sorghum", "beans"], lat: -17.4667, lng: 16.3333 },
+  { id: "omusati", name: "Omusati", staples: ["mahangu", "cattle", "goats"], lat: -17.5167, lng: 15.0333 },
+  { id: "oshana", name: "Oshana", staples: ["mahangu", "cabbage", "onions"], lat: -17.7833, lng: 15.7000 },
+  { id: "oshikoto", name: "Oshikoto", staples: ["mahangu", "maize", "cattle"], lat: -18.3667, lng: 16.5833 },
+  { id: "otjozondjupa", name: "Otjozondjupa", staples: ["cattle", "maize", "watermelon"], lat: -20.4633, lng: 16.6475 },
+  { id: "khomas", name: "Khomas", staples: ["tomatoes", "onions", "cabbage"], lat: -22.5609, lng: 17.0658 },
+  { id: "erongo", name: "Erongo", staples: ["tomatoes", "grapes", "goats"], lat: -22.6784, lng: 14.5258 },
+  { id: "hardap", name: "Hardap", staples: ["grapes", "wheat", "cattle"], lat: -24.6337, lng: 17.9647 },
+  { id: "karas", name: "Karas", staples: ["grapes", "dates", "cattle"], lat: -26.5773, lng: 18.1316 },
+  { id: "kunene", name: "Kunene", staples: ["cattle", "goats", "maize"], lat: -18.0607, lng: 13.8406 },
+  { id: "omaheke", name: "Omaheke", staples: ["cattle", "goats", "sorghum"], lat: -22.4500, lng: 18.9667 },
+]; 
+function getRegionCoordinates(regionId) {
+  const region = REGIONS.find((r) => r.id === regionId);
+  return region ? { lat: region.lat, lng: region.lng } : null;
+}
+
+
 
 const CROPS = [
   { id: "maize", name: "Maize", unit: "ton", category: "Grain", basePrice: 4200 },
@@ -264,4 +270,5 @@ module.exports = {
   PRICE_HISTORY,
   SELLER_LISTINGS,
   BUYER_REQUESTS,
+  getRegionCoordinates,
 };

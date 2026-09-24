@@ -7,6 +7,10 @@ import MatchFinder from "./components/MatchFinder";
 import { api } from "./api";
 import { useCatalog } from "./CatalogContext";
 
+
+import "leaflet/dist/leaflet.css";
+import MapView from "./components/MapView";
+
 const TABS = ["prices", "sell", "buy"];
 
 function tabFromHash() {
@@ -59,6 +63,7 @@ export default function App() {
     <div className="min-h-screen bg-sand">
       <Header tab={tab} setTab={goTab} online={catalog.online} loading={catalog.loading} />
 
+      {/* Hero / Information Banner Section */}
       <section className="bg-dusk text-sand">
         <div className="max-w-6xl mx-auto px-6 pt-14 pb-10">
           <p className="font-mono text-xs uppercase tracking-widest text-gold mb-3">
@@ -86,6 +91,23 @@ export default function App() {
         {tickerItems.length > 0 && <Ticker items={tickerItems} />}
       </section>
 
+     
+      <section className="max-w-6xl mx-auto px-6 pt-8">
+        <div className="bg-white border border-ink/10 rounded-2xl p-5 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-ink">Agri-Spatial GeoView</h2>
+              <p className="text-xs text-ink/60 mt-0.5">Visualizing live listings, buyer clusters, and regional pricing distributions</p>
+            </div>
+            <span className="text-[10px] font-mono uppercase bg-gold/10 border border-gold/30 text-ink/80 px-2 py-0.5 rounded-full font-bold">
+              Spatial Sync Engine Active
+            </span>
+          </div>
+          <MapView />
+        </div>
+      </section>
+
+      {/* Network Alert Message Context Area */}
       {catalog.error && (
         <div className="max-w-6xl mx-auto px-6 pt-6">
           <div className="bg-clay/10 border border-clay/30 text-clay rounded-xl px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3">
@@ -97,9 +119,12 @@ export default function App() {
         </div>
       )}
 
-      {tab === "prices" && <PriceDashboard />}
-      {tab === "sell" && <ListingsBoard />}
-      {tab === "buy" && <MatchFinder />}
+    
+      <div className="mt-4">
+        {tab === "prices" && <PriceDashboard />}
+        {tab === "sell" && <ListingsBoard />}
+        {tab === "buy" && <MatchFinder />}
+      </div>
 
       <footer className="border-t border-ink/10 mt-10">
         <div className="max-w-6xl mx-auto px-6 py-8 text-sm text-ink/50 flex flex-wrap justify-between gap-2">
